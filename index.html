@@ -104,6 +104,20 @@
             background: #f1f8f4;
         }
         
+        /* ── Drag-over visual feedback ─────────────────────────────── */
+        .file-input-label.dragover {
+            background: #e3eaff;
+            border-color: #764ba2;
+            border-width: 3px;
+            box-shadow: 0 0 10px rgba(118, 75, 162, 0.4);
+        }
+        
+        .file-input-label.dragover .file-text {
+            color: #764ba2;
+            font-weight: 600;
+        }
+        /* ───────────────────────────────────────────────────────────── */
+        
         .file-icon {
             font-size: 24px;
             margin-right: 10px;
@@ -242,9 +256,11 @@
 
     <script>
         // Your n8n webhook URL
-        const WEBHOOK_URL = 'hhttps://hartprojects.app.n8n.cloud/webhook/drawing-comparison-v2';
+        const WEBHOOK_URL = 'https://hartprojects.app.n8n.cloud/webhook/drawing-comparison-v2';
         
-        // File input handlers
+        // ────────────────────────────────────────────────
+        // File input change handlers (your original code)
+        // ────────────────────────────────────────────────
         document.getElementById('oldDrawing').addEventListener('change', function(e) {
             const fileName = e.target.files[0]?.name || 'Click to select old drawing';
             const label = document.getElementById('oldDrawingLabel');
@@ -274,15 +290,57 @@
                 text.classList.remove('has-file');
             }
         });
-        
-        // Form submission
+
+        // ────────────────────────────────────────────────
+        // Drag & Drop support — added section
+        // ────────────────────────────────────────────────
+        const dropZones = [
+            { input: 'oldDrawing', label: 'oldDrawingLabel', text: 'oldDrawingText', defaultText: 'Click to select old drawing' },
+            { input: 'newDrawing', label: 'newDrawingLabel', text: 'newDrawingText', defaultText: 'Click to select new drawing' }
+        ];
+
+        dropZones.forEach(zone => {
+            const labelEl = document.getElementById(zone.label);
+            const textEl  = document.getElementById(zone.text);
+            const inputEl = document.getElementById(zone.input);
+
+            // Prevent default browser behavior
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                labelEl.addEventListener(eventName, e => e.preventDefault());
+            });
+
+            // Show drag-over style
+            ['dragenter', 'dragover'].forEach(eventName => {
+                labelEl.addEventListener(eventName, () => {
+                    labelEl.classList.add('dragover');
+                });
+            });
+
+            // Remove drag-over style
+            ['dragleave', 'drop'].forEach(eventName => {
+                labelEl.addEventListener(eventName, () => {
+                    labelEl.classList.remove('dragover');
+                });
+            });
+
+            // Handle files being dropped
+            labelEl.addEventListener('drop', e => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    inputEl.files = files;                    // Assign to hidden input
+                    inputEl.dispatchEvent(new Event('change')); // Trigger your existing handler
+                }
+            });
+        });
+        // ────────────────────────────────────────────────
+
+        // Form submission (your original code)
         document.getElementById('comparisonForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const statusDiv = document.getElementById('status');
             const submitBtn = document.getElementById('submitBtn');
             
-            // Get form data
             const email = document.getElementById('email').value;
             const oldDrawingFile = document.getElementById('oldDrawing').files[0];
             const newDrawingFile = document.getElementById('newDrawing').files[0];
@@ -292,16 +350,13 @@
                 return;
             }
             
-            // Disable form during submission
             submitBtn.disabled = true;
             showStatus('loading', '<span class="loading-spinner"></span>Processing drawings... This may take 1-2 minutes.');
             
             try {
-                // Convert files to base64
                 const oldDrawingBase64 = await fileToBase64(oldDrawingFile);
                 const newDrawingBase64 = await fileToBase64(newDrawingFile);
                 
-                // Prepare payload
                 const payload = {
                     old_drawing: oldDrawingBase64,
                     new_drawing: newDrawingBase64,
@@ -310,7 +365,6 @@
                     user_email: email
                 };
                 
-                // Send to n8n webhook
                 const response = await fetch(WEBHOOK_URL, {
                     method: 'POST',
                     headers: {
@@ -327,7 +381,6 @@
                 
                 showStatus('success', `✅ Processing started! Comparison results will be emailed to ${email} in 1-2 minutes.`);
                 
-                // Reset form after 3 seconds
                 setTimeout(() => {
                     document.getElementById('comparisonForm').reset();
                     document.getElementById('oldDrawingLabel').classList.remove('has-file');
@@ -346,12 +399,10 @@
             }
         });
         
-        // Helper function to convert file to base64
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => {
-                    // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
                     const base64 = reader.result.split(',')[1];
                     resolve(base64);
                 };
@@ -360,7 +411,6 @@
             });
         }
         
-        // Helper function to show status messages
         function showStatus(type, message) {
             const statusDiv = document.getElementById('status');
             statusDiv.className = `status ${type}`;
